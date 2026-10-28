@@ -1,9 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <!-- Base application theme. -->
-    <style name="Base.Theme.MAD700_ASSIGNMENT_TABASSUMBEEMATH" parent="Theme.Material3.DayNight.NoActionBar">
-        <!-- Customize your light theme here. -->
-        <!-- <item name="colorPrimary">@color/my_light_primary</item> -->
+
+    <style name="Base.Theme.MAD700_ASSIGNMENT_TABASSUMBEEMATH"
+        parent="Theme.Material3.DayNight.NoActionBar">
+
+        <!-- Main brand colours -->
+        <item name="colorPrimary">@color/terracotta</item>
+        <item name="colorOnPrimary">@color/white</item>
+
+        <!-- Secondary colours -->
+        <item name="colorSecondary">@color/soft_green</item>
+        <item name="colorOnSecondary">@color/white</item>
+
+        <!-- App backgrounds -->
+        <item name="android:colorBackground">@color/warm_ivory</item>
+        <item name="colorSurface">@color/card_white</item>
+        <item name="colorOnSurface">@color/espresso</item>
+
+        <!-- Status bar -->
+        <item name="android:statusBarColor">@color/warm_ivory</item>
+        <item name="android:windowLightStatusBar">true</item>
+
+        <!-- Navigation bar -->
+        <item name="android:navigationBarColor">@color/warm_ivory</item>
+
+        <!-- Keep system bars visually consistent -->
+        <item name="android:windowActionModeOverlay">true</item>
+
     </style>
 
-    <style name="Theme.MAD700_ASSIGNMENT_TABASSUMBEEMATH" parent="Base.Theme.MAD700_ASSIGNMENT_TABASSUMBEEMATH" />
+    <style name="Theme.MAD700_ASSIGNMENT_TABASSUMBEEMATH"
+        parent="Base.Theme.MAD700_ASSIGNMENT_TABASSUMBEEMATH" />
+
 </resources>
