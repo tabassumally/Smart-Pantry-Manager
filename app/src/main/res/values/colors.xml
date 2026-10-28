@@ -1,5 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Existing colours: kept for compatibility -->
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+
+    <!-- Smart Pantry Manager: Terracotta & Oat -->
+    <color name="terracotta">#B66F53</color>
+    <color name="terracotta_dark">#96563F</color>
+    <color name="oat">#F7EBDD</color>
+    <color name="warm_ivory">#FFF9F0</color>
+    <color name="espresso">#493B34</color>
+    <color name="muted_brown">#827267</color>
+    <color name="soft_border">#E8DFD4</color>
+    <color name="soft_green">#78866B</color>
+    <color name="soft_red">#F3DEDA</color>
+    <color name="card_white">#FFFFFC</color>
 </resources>
