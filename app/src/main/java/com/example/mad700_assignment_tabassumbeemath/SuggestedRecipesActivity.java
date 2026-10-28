@@ -1,265 +1,342 @@
 
 package com.example.mad700_assignment_tabassumbeemath;
 
-import android.content.ContentValues;
-import android.content.Context;
+import android.content.Intent;
 import android.database.Cursor;
-import android.database.sqlite.SQLiteDatabase;
-import android.database.sqlite.SQLiteOpenHelper;
+import android.os.Bundle;
+import android.view.Gravity;
+import android.widget.ArrayAdapter;
+import android.widget.Button;
+import android.widget.LinearLayout;
+import android.widget.ListView;
+import android.widget.ScrollView;
+import android.widget.TextView;
 
-public class RecipeDatabaseHelper extends SQLiteOpenHelper {
+import androidx.appcompat.app.AppCompatActivity;
 
-    private static final String DATABASE_NAME = "smart_recipes.db";
-    private static final int DATABASE_VERSION = 2;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Locale;
+import java.util.Map;
 
-    public static final String RECIPES = "recipes";
-    public static final String RECIPE_INGREDIENTS = "recipe_ingredients";
+public class SuggestedRecipesActivity extends AppCompatActivity {
 
-    public RecipeDatabaseHelper(Context context) {
-        super(context, DATABASE_NAME, null, DATABASE_VERSION);
+    private PantryDatabaseHelper pantryDatabase;
+    private RecipeDatabaseHelper recipeDatabase;
+
+    private final ArrayList<String> recipeNames = new ArrayList<>();
+    private final ArrayList<Long> recipeIds = new ArrayList<>();
+
+    private ArrayAdapter<String> adapter;
+    private TextView message;
+
+    private int pantryEntryCount = 0;
+    private int recipeCount = 0;
+    private Map<String, Double> currentPantry = new HashMap<>();
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+
+        pantryDatabase = new PantryDatabaseHelper(this);
+        recipeDatabase = new RecipeDatabaseHelper(this);
+
+        LinearLayout layout = new LinearLayout(this);
+        layout.setOrientation(LinearLayout.VERTICAL);
+        layout.setPadding(32, 24, 32, 16);
+
+        TextView heading = new TextView(this);
+        heading.setText("Suggested Recipes");
+        heading.setTextSize(26);
+        heading.setGravity(Gravity.CENTER);
+        heading.setPadding(0, 8, 0, 16);
+        layout.addView(heading);
+
+        message = new TextView(this);
+        message.setTextSize(15);
+        message.setPadding(0, 8, 0, 12);
+        layout.addView(message);
+
+        ListView listView = new ListView(this);
+
+        adapter = new ArrayAdapter<>(
+                this,
+                android.R.layout.simple_list_item_1,
+                recipeNames
+        );
+
+        listView.setAdapter(adapter);
+
+        layout.addView(listView, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, 0, 1
+        ));
+
+        Button backButton = new Button(this);
+        backButton.setText("Back to Pantry");
+        layout.addView(backButton);
+
+        setContentView(layout);
+
+        backButton.setOnClickListener(v -> finish());
+
+        listView.setOnItemClickListener((parent, view, position, id) -> {
+            if (position < recipeIds.size()) {
+                Intent intent = new Intent(
+                        SuggestedRecipesActivity.this,
+                        RecipeDetailActivity.class
+                );
+
+                intent.putExtra("recipe_id", recipeIds.get(position));
+                startActivity(intent);
+            }
+        });
+
+        loadSuggestions();
     }
 
     @Override
-    public void onCreate(SQLiteDatabase db) {
-        db.execSQL("CREATE TABLE " + RECIPES + " (" +
-                "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
-                "name TEXT NOT NULL, " +
-                "method TEXT NOT NULL)");
+    protected void onResume() {
+        super.onResume();
 
-        db.execSQL("CREATE TABLE " + RECIPE_INGREDIENTS + " (" +
-                "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
-                "recipe_id INTEGER NOT NULL, " +
-                "ingredient_name TEXT NOT NULL, " +
-                "quantity REAL NOT NULL, " +
-                "unit TEXT NOT NULL, " +
-                "FOREIGN KEY(recipe_id) REFERENCES recipes(id))");
-
-        seedRecipes(db);
-        seedAdditionalRecipes(db);
-    }
-
-    @Override
-    public void onUpgrade(
-            SQLiteDatabase db, int oldVersion, int newVersion) {
-
-        if (oldVersion < 2) {
-            seedAdditionalRecipes(db);
+        if (pantryDatabase != null && adapter != null) {
+            loadSuggestions();
         }
     }
 
-    private void seedRecipes(SQLiteDatabase db) {
+    private void loadSuggestions() {
+        recipeNames.clear();
+        recipeIds.clear();
 
-        addRecipe(db, "Tomato and Onion Pasta",
-                "1. Boil pasta until tender.\n" +
-                        "2. Chop and cook the onion and tomatoes.\n" +
-                        "3. Mix together, season and serve.",
-                new String[]{"pasta", "tomato", "onion"},
-                new double[]{200, 2, 1},
-                new String[]{"g", "items", "items"});
+        currentPantry = loadPantryQuantities();
 
-        addRecipe(db, "Potato Mash",
-                "1. Peel and chop the potatoes.\n" +
-                        "2. Boil until soft.\n" +
-                        "3. Mash with butter and milk.",
-                new String[]{"potato", "butter", "milk"},
-                new double[]{500, 30, 50},
-                new String[]{"g", "g", "ml"});
+        try (Cursor pantryCursor = pantryDatabase.getReadableDatabase().query(
+                PantryDatabaseHelper.TABLE_INGREDIENTS,
+                new String[]{"id"},
+                null, null, null, null, null)) {
 
-        addRecipe(db, "Egg Fried Rice",
-                "1. Cook the rice and allow it to cool.\n" +
-                        "2. Scramble the eggs in a pan.\n" +
-                        "3. Add rice and oil, then stir-fry.",
-                new String[]{"rice", "egg", "oil"},
-                new double[]{200, 2, 15},
-                new String[]{"g", "items", "ml"});
+            pantryEntryCount = pantryCursor.getCount();
+        }
 
-        addRecipe(db, "Vegetable Soup",
-                "1. Chop the carrot, potato and onion.\n" +
-                        "2. Simmer in water until tender.\n" +
-                        "3. Season and serve warm.",
-                new String[]{"carrot", "potato", "onion"},
-                new double[]{2, 2, 1},
-                new String[]{"items", "items", "items"});
+        recipeCount = 0;
+        String firstFailure = "No recipe details available.";
 
-        addRecipe(db, "Banana Pancakes",
-                "1. Mash the banana.\n" +
-                        "2. Mix with flour, milk and egg.\n" +
-                        "3. Cook small pancakes in a lightly oiled pan.",
-                new String[]{"banana", "flour", "milk", "egg"},
-                new double[]{1, 100, 100, 1},
-                new String[]{"items", "g", "ml", "items"});
+        try (Cursor recipes = recipeDatabase.getAllRecipes()) {
+            while (recipes.moveToNext()) {
+                recipeCount++;
 
-        addRecipe(db, "Cheese Omelette",
-                "1. Beat the eggs.\n" +
-                        "2. Pour into a lightly oiled pan.\n" +
-                        "3. Add cheese, fold and cook until set.",
-                new String[]{"egg", "cheese", "oil"},
-                new double[]{2, 30, 5},
-                new String[]{"items", "g", "ml"});
+                long recipeId = recipes.getLong(0);
+                String recipeName = recipes.getString(1);
 
-        addRecipe(db, "Carrot Salad",
-                "1. Wash and grate the carrots.\n" +
-                        "2. Add lemon juice.\n" +
-                        "3. Toss and serve.",
-                new String[]{"carrot", "lemon"},
-                new double[]{3, 1},
-                new String[]{"items", "items"});
+                String failure = getRecipeFailureReason(
+                        recipeId, currentPantry
+                );
 
-        addRecipe(db, "Garlic Butter Pasta",
-                "1. Boil the pasta until tender.\n" +
-                        "2. Melt butter and cook the garlic briefly.\n" +
-                        "3. Toss the pasta in the garlic butter.",
-                new String[]{"pasta", "butter", "garlic"},
-                new double[]{200, 30, 2},
-                new String[]{"g", "g", "cloves"});
-
-        addRecipe(db, "Tomato Egg Scramble",
-                "1. Chop and cook the tomatoes.\n" +
-                        "2. Beat and add the eggs.\n" +
-                        "3. Stir gently until the eggs are cooked.",
-                new String[]{"tomato", "egg", "onion"},
-                new double[]{2, 2, 1},
-                new String[]{"items", "items", "items"});
-
-        addRecipe(db, "Simple Rice and Beans",
-                "1. Cook the rice until tender.\n" +
-                        "2. Heat the cooked beans.\n" +
-                        "3. Combine and season to taste.",
-                new String[]{"rice", "beans", "onion"},
-                new double[]{200, 200, 1},
-                new String[]{"g", "g", "items"});
-
-        addRecipe(db, "Potato and Onion Fry",
-                "1. Slice the potatoes and onion.\n" +
-                        "2. Heat oil in a pan.\n" +
-                        "3. Fry until the potatoes are cooked through.",
-                new String[]{"potato", "onion", "oil"},
-                new double[]{400, 1, 20},
-                new String[]{"g", "items", "ml"});
-
-        addRecipe(db, "Apple Banana Fruit Bowl",
-                "1. Wash and chop the apple.\n" +
-                        "2. Peel and slice the banana.\n" +
-                        "3. Combine and serve fresh.",
-                new String[]{"apple", "banana"},
-                new double[]{1, 1},
-                new String[]{"items", "items"});
-
-        addRecipe(db, "Garlic Vegetable Rice",
-                "1. Cook the rice.\n" +
-                        "2. Cook the carrot and garlic in a pan.\n" +
-                        "3. Add rice and stir-fry until heated through.",
-                new String[]{"rice", "carrot", "garlic", "oil"},
-                new double[]{200, 1, 2, 15},
-                new String[]{"g", "items", "cloves", "ml"});
-
-        addRecipe(db, "Cheesy Mashed Potatoes",
-                "1. Boil the potatoes until soft.\n" +
-                        "2. Drain and mash with milk.\n" +
-                        "3. Mix in the cheese and serve.",
-                new String[]{"potato", "milk", "cheese"},
-                new double[]{400, 50, 40},
-                new String[]{"g", "ml", "g"});
-
-        addRecipe(db, "Lemon Garlic Carrots",
-                "1. Slice the carrots.\n" +
-                        "2. Cook until tender.\n" +
-                        "3. Add garlic and lemon juice, then serve.",
-                new String[]{"carrot", "garlic", "lemon", "butter"},
-                new double[]{3, 1, 1, 15},
-                new String[]{"items", "cloves", "items", "g"});
-    }
-
-    private void seedAdditionalRecipes(SQLiteDatabase db) {
-
-        addRecipe(db, "Creamy Tomato Chickpea Curry",
-                "1. Chop and cook the onion until soft.\n" +
-                        "2. Add chickpeas, tomatoes and curry spices.\n" +
-                        "3. Stir in milk and simmer until creamy and heated through.\n" +
-                        "4. Serve warm with rice or bread.",
-                new String[]{"chickpea", "tomato", "onion", "milk"},
-                new double[]{400, 2, 1, 100},
-                new String[]{"g", "items", "items", "ml"});
-
-        addRecipe(db, "Cheesy Potato Fritters",
-                "1. Peel and grate the potatoes.\n" +
-                        "2. Mix with cheese, flour and egg.\n" +
-                        "3. Shape into small fritters.\n" +
-                        "4. Pan-fry until golden and cooked through.",
-                new String[]{"potato", "cheese", "flour", "egg"},
-                new double[]{300, 50, 50, 1},
-                new String[]{"g", "g", "g", "items"});
-
-        addRecipe(db, "Garlic Carrot Rice",
-                "1. Cook the rice until tender.\n" +
-                        "2. Grate the carrot and chop the garlic.\n" +
-                        "3. Melt the butter in a pan and cook the carrot and garlic.\n" +
-                        "4. Stir in the rice and serve warm.",
-                new String[]{"rice", "carrot", "garlic", "butter"},
-                new double[]{200, 1, 2, 20},
-                new String[]{"g", "items", "cloves", "g"});
-
-        addRecipe(db, "Cinnamon Banana Toast",
-                "1. Mash the banana with a pinch of cinnamon.\n" +
-                        "2. Beat the egg in a bowl and dip the bread into it.\n" +
-                        "3. Cook the bread in a lightly buttered pan until golden.\n" +
-                        "4. Top with the banana mixture and serve.",
-                new String[]{"bread", "banana", "egg", "cinnamon", "butter"},
-                new double[]{2, 1, 1, 1, 10},
-                new String[]{"slices", "items", "items", "g", "g"});
-
-        addRecipe(db, "Creamy Garlic Spinach Pasta",
-                "1. Boil the pasta until tender and drain.\n" +
-                        "2. Melt butter and gently cook the chopped garlic.\n" +
-                        "3. Add spinach and cook until wilted.\n" +
-                        "4. Stir in milk, then mix with the pasta and serve.",
-                new String[]{"pasta", "spinach", "garlic", "milk", "butter"},
-                new double[]{200, 100, 2, 100, 20},
-                new String[]{"g", "g", "cloves", "ml", "g"});
-    }
-
-    private void addRecipe(
-            SQLiteDatabase db,
-            String name,
-            String method,
-            String[] names,
-            double[] quantities,
-            String[] units) {
-
-        ContentValues recipeValues = new ContentValues();
-        recipeValues.put("name", name);
-        recipeValues.put("method", method);
-
-        long recipeId = db.insert(RECIPES, null, recipeValues);
-
-        if (recipeId == -1) {
+                if (failure == null) {
+                    recipeIds.add(recipeId);
+                    recipeNames.add(recipeName);
+                } else if (recipeCount == 1) {
+                    firstFailure = recipeName + ": " + failure;
+                }
+            }
+        } catch (Exception e) {
+            message.setText(
+                    "Database error while loading recipes:\n" +
+                    e.getClass().getSimpleName() + ": " + e.getMessage()
+            );
+            adapter.notifyDataSetChanged();
             return;
         }
 
-        for (int i = 0; i < names.length; i++) {
-            ContentValues ingredientValues = new ContentValues();
-            ingredientValues.put("recipe_id", recipeId);
-            ingredientValues.put("ingredient_name", names[i]);
-            ingredientValues.put("quantity", quantities[i]);
-            ingredientValues.put("unit", units[i]);
+        adapter.notifyDataSetChanged();
 
-            db.insert(RECIPE_INGREDIENTS, null, ingredientValues);
+        if (!recipeNames.isEmpty()) {
+            message.setText(
+                    recipeNames.size() +
+                    " recipe(s) can be made with your current pantry. " +
+                    "Tap a recipe to see its details."
+            );
+            return;
+        }
+
+        StringBuilder details = new StringBuilder();
+
+        details.append("Recipe diagnostic\n\n");
+        details.append("Pantry entries saved: ")
+                .append(pantryEntryCount).append("\n");
+        details.append("Recipes found in database: ")
+                .append(recipeCount).append("\n\n");
+
+        if (pantryEntryCount == 0) {
+            details.append(
+                    "Your pantry database appears empty. " +
+                    "Check that your saved ingredients are visible " +
+                    "on the main pantry screen."
+            );
+        } else if (recipeCount == 0) {
+            details.append(
+                    "The recipe database contains no recipes. " +
+                    "The recipe seeding or database upgrade needs fixing."
+            );
+        } else {
+            details.append("First recipe checked:\n")
+                    .append(firstFailure)
+                    .append("\n\nYour pantry entries:\n");
+
+            int shown = 0;
+
+            for (Map.Entry<String, Double> entry :
+                    currentPantry.entrySet()) {
+
+                details.append("• ")
+                        .append(entry.getKey().replace("|", " — "))
+                        .append(": ")
+                        .append(entry.getValue())
+                        .append("\n");
+
+                shown++;
+
+                if (shown >= 12) {
+                    details.append("More entries may be saved.\n");
+                    break;
+                }
+            }
+
+            details.append(
+                    "\nPlease share this diagnostic message " +
+                    "so we can identify the exact mismatch."
+            );
+        }
+
+        message.setText(details.toString());
+    }
+
+    private Map<String, Double> loadPantryQuantities() {
+        Map<String, Double> pantry = new HashMap<>();
+
+        try (Cursor cursor = pantryDatabase.getReadableDatabase().query(
+                PantryDatabaseHelper.TABLE_INGREDIENTS,
+                new String[]{"name", "quantity", "unit"},
+                null, null, null, null, null)) {
+
+            while (cursor.moveToNext()) {
+                String name = normalize(cursor.getString(0));
+                double quantity = cursor.getDouble(1);
+                String unit = normalizeUnit(cursor.getString(2));
+
+                String key = name + "|" + unit;
+
+                double previous = pantry.containsKey(key)
+                        ? pantry.get(key) : 0.0;
+
+                pantry.put(key, previous + quantity);
+            }
+        }
+
+        return pantry;
+    }
+
+    // Returns null if the recipe can be made.
+    // Otherwise, returns the first missing or insufficient ingredient.
+    private String getRecipeFailureReason(
+            long recipeId, Map<String, Double> pantry) {
+
+        boolean hasIngredients = false;
+
+        try (Cursor required =
+                     recipeDatabase.getRecipeIngredients(recipeId)) {
+
+            while (required.moveToNext()) {
+                hasIngredients = true;
+
+                String originalName = required.getString(0);
+                double needed = required.getDouble(1);
+                String originalUnit = required.getString(2);
+
+                String name = normalize(originalName);
+                String unit = normalizeUnit(originalUnit);
+                String key = name + "|" + unit;
+
+                Double available = pantry.get(key);
+
+                if (available == null) {
+                    return "Missing " + originalName +
+                            " (requires " + needed + " " +
+                            originalUnit + ").";
+                }
+
+                if (available + 0.000001 < needed) {
+                    return "Insufficient " + originalName +
+                            ": requires " + needed + " " +
+                            originalUnit + ", but you have " +
+                            available + " " + originalUnit + ".";
+                }
+            }
+        }
+
+        if (!hasIngredients) {
+            return "This recipe has no ingredient records.";
+        }
+
+        return null;
+    }
+
+    private boolean canMakeRecipe(
+            long recipeId, Map<String, Double> pantry) {
+        return getRecipeFailureReason(recipeId, pantry) == null;
+    }
+
+    private String normalize(String value) {
+        String result = value == null ? "" :
+                value.trim().toLowerCase(Locale.ROOT);
+
+        if (result.endsWith("ies") && result.length() > 3) {
+            result = result.substring(0, result.length() - 3) + "y";
+        } else if (result.endsWith("s") &&
+                !result.endsWith("ss") && result.length() > 1) {
+            result = result.substring(0, result.length() - 1);
+        }
+
+        return result;
+    }
+
+    private String normalizeUnit(String value) {
+        String unit = normalize(value);
+
+        switch (unit) {
+            case "gram":
+                return "g";
+            case "kilogram":
+                return "kg";
+            case "milliliter":
+            case "millilitre":
+                return "ml";
+            case "liter":
+            case "litre":
+                return "l";
+            case "piece":
+            case "item":
+                return "items";
+            case "clove":
+                return "cloves";
+            case "cup":
+                return "cups";
+            case "slice":
+                return "slices";
+            default:
+                return unit;
         }
     }
 
-    public Cursor getAllRecipes() {
-        return getReadableDatabase().query(
-                RECIPES,
-                new String[]{"id", "name", "method"},
-                null, null, null, null, "name ASC");
-    }
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
 
-    public Cursor getRecipeIngredients(long recipeId) {
-        return getReadableDatabase().query(
-                RECIPE_INGREDIENTS,
-                new String[]{"ingredient_name", "quantity", "unit"},
-                "recipe_id = ?",
-                new String[]{String.valueOf(recipeId)},
-                null, null, "ingredient_name ASC");
+        if (pantryDatabase != null) {
+            pantryDatabase.close();
+        }
+
+        if (recipeDatabase != null) {
+            recipeDatabase.close();
+        }
     }
 }
