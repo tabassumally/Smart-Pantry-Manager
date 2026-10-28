@@ -10,7 +10,7 @@ import android.database.sqlite.SQLiteOpenHelper;
 public class RecipeDatabaseHelper extends SQLiteOpenHelper {
 
     private static final String DATABASE_NAME = "smart_recipes.db";
-    private static final int DATABASE_VERSION = 4;
+    private static final int DATABASE_VERSION = 5;
 
     public static final String RECIPES = "recipes";
     public static final String RECIPE_INGREDIENTS = "recipe_ingredients";
@@ -36,6 +36,10 @@ public class RecipeDatabaseHelper extends SQLiteOpenHelper {
 
         seedRecipes(db);
         seedAdditionalRecipes(db);
+        seedFinalRecipe(db);
+
+        removeRecipe(db, "Quick Garlic Butter Toast");
+        removeRecipe(db, "Cinnamon Banana Toast");
     }
 
     @Override
@@ -56,18 +60,22 @@ public class RecipeDatabaseHelper extends SQLiteOpenHelper {
             removeRecipe(db, "Quick Garlic Butter Toast");
             removeRecipe(db, "Cinnamon Banana Toast");
         }
+
+        if (oldVersion < 5) {
+            removeRecipe(db, "Quick Garlic Butter Toast");
+            removeRecipe(db, "Cinnamon Banana Toast");
+        }
     }
 
     private void removeRecipe(SQLiteDatabase db, String recipeName) {
-        Cursor cursor = db.query(
+        try (Cursor cursor = db.query(
                 RECIPES,
                 new String[]{"id"},
                 "name = ?",
                 new String[]{recipeName},
-                null, null, null);
+                null, null, null)) {
 
-        try {
-            if (cursor.moveToFirst()) {
+            while (cursor.moveToNext()) {
                 long recipeId = cursor.getLong(
                         cursor.getColumnIndexOrThrow("id"));
 
@@ -79,8 +87,6 @@ public class RecipeDatabaseHelper extends SQLiteOpenHelper {
                         "id = ?",
                         new String[]{String.valueOf(recipeId)});
             }
-        } finally {
-            cursor.close();
         }
     }
 
