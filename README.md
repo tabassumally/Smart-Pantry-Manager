@@ -1,60 +1,71 @@
 
 # Smart Pantry Manager
 
-## About the Project
+## Project Description
 
-Smart Pantry Manager is an Android application that I developed for my Mobile App Development 700 (MAD700) practical assignment at Richfield Graduate Institute of Technology.
+Smart Pantry Manager is an Android application developed as part of the Mobile App Development 700 (MAD700) practical assignment at Richfield Graduate Institute of Technology.
 
-I chose this idea because food sometimes goes to waste when people forget about ingredients they already have at home. This app helps users keep track of their pantry items and find recipes they can make using the ingredients they have available.
+The purpose of the application is to help users manage ingredients they have at home and reduce food waste by suggesting recipes they can prepare using their available ingredients.
 
-## Features
+The application was developed in Java using Android Studio, with SQLite used to store pantry items and recipe information.
+
+## Application Features
 
 The application includes the following features:
 
-- Add ingredients to the pantry and enter their quantities.
-- View all saved pantry ingredients.
-- Edit ingredient details and delete ingredients that are no longer needed.
+- Add ingredients to the pantry, including their quantities.
+- View the current pantry ingredients in a list.
+- Edit and delete pantry items.
 - Search for ingredients in the pantry.
 - View suggested recipes based on the ingredients available.
-- View recipe ingredients and preparation instructions.
-- Display recipes only when all the required ingredients are available in sufficient quantities.
-- Show warnings for ingredients that have expired or are close to expiring.
-- Save pantry information using a local database.
-- Change the expiry alert setting through the settings screen.
+- View the ingredients and preparation instructions for each recipe.
+- Check ingredient names and quantities before suggesting recipes.
+- Display expiry warnings for expired and soon-to-expire ingredients.
+- Change the expiry alert preference through the settings screen.
+- Save pantry information locally so that it remains available after closing and reopening the application.
+- Display a message when no recipes match the available pantry ingredients.
 
 ## Technologies Used
 
-The following technologies were used to develop the application:
+- **Java:** Used to develop the Android application functionality.
+- **Android Studio:** Used to develop and test the application.
+- **SQLite:** Used to store pantry ingredients and recipe information locally.
+- **XML:** Used for the application's layouts and resources.
+- **GitHub:** Used to store the source code and track development changes.
+- **Gradle:** Used to configure and build the Android project.
 
-- **Java** – Used to write the application functionality.
-- **Android Studio** – Used to develop and test the application.
-- **SQLite** – Used to store pantry ingredients and recipe information.
-- **XML** – Used to create the application's layouts and resources.
-- **GitHub** – Used to store the project files and keep track of the project.
+## Database Choice
 
-## Database
+SQLite was used because the application needs to store and retrieve pantry ingredients and recipe information on the device. It does not require a separate database server, and the information can remain saved when the application is closed.
 
-I used SQLite because the application needs to save pantry ingredients and recipe information on the device. This means users can close the application and open it again without losing their saved pantry items.
+The database supports the pantry management functions, including adding, viewing, editing and deleting ingredients.
 
 ## Recipe Matching
 
-One of the main features of my application is the recipe matching system. The app checks the ingredients and quantities available in the user's pantry before suggesting a recipe.
+An important requirement of this assignment is that recipe suggestions must use strict ingredient matching.
 
-For example, if a recipe requires five ingredients but the user only has four, that recipe should not appear in the suggested recipes list. The user must have all the required ingredients in the correct quantities to make the recipe.
+The application checks whether the user has every ingredient required by a recipe and whether the available quantities are sufficient. If an ingredient is missing or there is not enough of it, the recipe should not appear in the suggested recipes list.
 
-## Testing
-
-I tested the main features of the application to check that they work as expected. This included adding, editing and deleting ingredients, searching the pantry, viewing recipe suggestions, checking expiry warnings and changing the expiry alert setting.
+This allows the application to suggest recipes that the user can prepare with the ingredients already available, without needing to buy additional ingredients.
 
 ## How to Run the Application
 
-1. Download or clone the project from GitHub.
+1. Download or clone the Smart Pantry Manager repository from GitHub.
 2. Open Android Studio.
 3. Select **Open** and choose the downloaded project folder.
-4. Allow Gradle to sync and download any required dependencies.
-5. Connect an Android device or start an emulator.
-6. Click the **Run** button in Android Studio to launch the application.
+4. Allow Gradle to sync the project and download any required dependencies.
+5. Connect an Android device or start an Android emulator.
+6. Run the application using the Run button in Android Studio.
+
+## Project Structure
+
+- `app/src/main/java/` contains the application source code.
+- `app/src/main/res/` contains layouts, drawable resources and other application resources.
+- `app/src/main/AndroidManifest.xml` contains the application and activity configuration.
+- `gradle/` contains Gradle configuration files and the wrapper.
+- `app/build.gradle.kts` contains the application build configuration.
+- `settings.gradle.kts` contains the project settings.
 
 ## Conclusion
 
-Developing Smart Pantry Manager helped me learn more about Android application development, working with an SQLite database and implementing different application features. It also helped me understand how an application can be used to solve a practical problem, such as reducing food waste at home.
+This project applies the concepts covered in Mobile App Development 700, including Android activities, layouts, navigation, data storage and application functionality. The application demonstrates how an Android app can manage local data and use that information to provide recipe suggestions based on the user's available ingredients.
