@@ -5,11 +5,11 @@ import android.content.Intent;
 import android.database.Cursor;
 import android.os.Bundle;
 import android.view.Gravity;
+import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.ListView;
-import android.widget.ScrollView;
 import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -32,6 +32,8 @@ public class SuggestedRecipesActivity extends AppCompatActivity {
 
     private int pantryEntryCount = 0;
     private int recipeCount = 0;
+    private int matchingRecipeCount = 0;
+
     private Map<String, Double> currentPantry = new HashMap<>();
 
     @Override
@@ -46,7 +48,7 @@ public class SuggestedRecipesActivity extends AppCompatActivity {
         layout.setPadding(32, 24, 32, 16);
 
         TextView heading = new TextView(this);
-        heading.setText("Suggested Recipes");
+        heading.setText("All Recipes");
         heading.setTextSize(26);
         heading.setGravity(Gravity.CENTER);
         heading.setPadding(0, 8, 0, 16);
@@ -59,16 +61,33 @@ public class SuggestedRecipesActivity extends AppCompatActivity {
 
         ListView listView = new ListView(this);
 
-        adapter = new ArrayAdapter<>(
+        adapter = new ArrayAdapter<String>(
                 this,
                 android.R.layout.simple_list_item_1,
                 recipeNames
-        );
+        ) {
+            @Override
+            public android.view.View getView(
+                    int position,
+                    android.view.View convertView,
+                    ViewGroup parent) {
+
+                TextView row = (TextView) super.getView(
+                        position, convertView, parent);
+
+                row.setTextSize(16);
+                row.setPadding(20, 18, 20, 18);
+
+                return row;
+            }
+        };
 
         listView.setAdapter(adapter);
 
         layout.addView(listView, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, 0, 1
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                0,
+                1
         ));
 
         Button backButton = new Button(this);
@@ -98,7 +117,8 @@ public class SuggestedRecipesActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
 
-        if (pantryDatabase != null && adapter != null) {
+        if (pantryDatabase != null && recipeDatabase != null
+                && adapter != null) {
             loadSuggestions();
         }
     }
@@ -109,18 +129,20 @@ public class SuggestedRecipesActivity extends AppCompatActivity {
 
         currentPantry = loadPantryQuantities();
 
-        try (Cursor pantryCursor = pantryDatabase.getReadableDatabase().query(
-                PantryDatabaseHelper.TABLE_INGREDIENTS,
-                new String[]{"id"},
-                null, null, null, null, null)) {
+        try (Cursor pantryCursor =
+                     pantryDatabase.getReadableDatabase().query(
+                             PantryDatabaseHelper.TABLE_INGREDIENTS,
+                             new String[]{"id"},
+                             null, null, null, null, null)) {
 
             pantryEntryCount = pantryCursor.getCount();
         }
 
         recipeCount = 0;
-        String firstFailure = "No recipe details available.";
+        matchingRecipeCount = 0;
 
         try (Cursor recipes = recipeDatabase.getAllRecipes()) {
+
             while (recipes.moveToNext()) {
                 recipeCount++;
 
@@ -128,95 +150,63 @@ public class SuggestedRecipesActivity extends AppCompatActivity {
                 String recipeName = recipes.getString(1);
 
                 String failure = getRecipeFailureReason(
-                        recipeId, currentPantry
-                );
+                        recipeId, currentPantry);
+
+                recipeIds.add(recipeId);
 
                 if (failure == null) {
-                    recipeIds.add(recipeId);
-                    recipeNames.add(recipeName);
-                } else if (recipeCount == 1) {
-                    firstFailure = recipeName + ": " + failure;
+                    matchingRecipeCount++;
+
+                    recipeNames.add(
+                            "\u2713 " + recipeName
+                                    + "\n   CAN MAKE WITH YOUR PANTRY"
+                    );
+
+                } else {
+                    recipeNames.add(
+                            "\u2022 " + recipeName
+                                    + "\n   " + failure
+                    );
                 }
             }
+
         } catch (Exception e) {
             message.setText(
-                    "Database error while loading recipes:\n" +
-                    e.getClass().getSimpleName() + ": " + e.getMessage()
+                    "Unable to load recipes.\n\n"
+                            + e.getClass().getSimpleName()
+                            + ": " + e.getMessage()
             );
+
             adapter.notifyDataSetChanged();
             return;
         }
 
         adapter.notifyDataSetChanged();
 
-        if (!recipeNames.isEmpty()) {
-            message.setText(
-                    recipeNames.size() +
-                    " recipe(s) can be made with your current pantry. " +
-                    "Tap a recipe to see its details."
-            );
-            return;
-        }
+        message.setText(
+                "Recipes in database: " + recipeCount
+                        + "\nRecipes you can make now: "
+                        + matchingRecipeCount
+                        + "\nPantry entries saved: " + pantryEntryCount
+                        + "\n\nTap any recipe to view its details."
+        );
 
-        StringBuilder details = new StringBuilder();
-
-        details.append("Recipe diagnostic\n\n");
-        details.append("Pantry entries saved: ")
-                .append(pantryEntryCount).append("\n");
-        details.append("Recipes found in database: ")
-                .append(recipeCount).append("\n\n");
-
-        if (pantryEntryCount == 0) {
-            details.append(
-                    "Your pantry database appears empty. " +
-                    "Check that your saved ingredients are visible " +
-                    "on the main pantry screen."
-            );
-        } else if (recipeCount == 0) {
-            details.append(
-                    "The recipe database contains no recipes. " +
-                    "The recipe seeding or database upgrade needs fixing."
-            );
-        } else {
-            details.append("First recipe checked:\n")
-                    .append(firstFailure)
-                    .append("\n\nYour pantry entries:\n");
-
-            int shown = 0;
-
-            for (Map.Entry<String, Double> entry :
-                    currentPantry.entrySet()) {
-
-                details.append("• ")
-                        .append(entry.getKey().replace("|", " — "))
-                        .append(": ")
-                        .append(entry.getValue())
-                        .append("\n");
-
-                shown++;
-
-                if (shown >= 12) {
-                    details.append("More entries may be saved.\n");
-                    break;
-                }
-            }
-
-            details.append(
-                    "\nPlease share this diagnostic message " +
-                    "so we can identify the exact mismatch."
+        if (recipeCount == 0) {
+            message.append(
+                    "\n\nNo recipes were found. "
+                            + "Check the recipe database seeding."
             );
         }
-
-        message.setText(details.toString());
     }
 
     private Map<String, Double> loadPantryQuantities() {
         Map<String, Double> pantry = new HashMap<>();
 
-        try (Cursor cursor = pantryDatabase.getReadableDatabase().query(
-                PantryDatabaseHelper.TABLE_INGREDIENTS,
-                new String[]{"name", "quantity", "unit"},
-                null, null, null, null, null)) {
+        try (Cursor cursor =
+                     pantryDatabase.getReadableDatabase().query(
+                             PantryDatabaseHelper.TABLE_INGREDIENTS,
+                             new String[]{"name", "quantity", "unit"},
+                             null, null, null, null, null)) {
 
             while (cursor.moveToNext()) {
                 String name = normalize(cursor.getString(0));
@@ -235,10 +225,10 @@ public class SuggestedRecipesActivity extends AppCompatActivity {
         return pantry;
     }
 
-    // Returns null if the recipe can be made.
-    // Otherwise, returns the first missing or insufficient ingredient.
+    // Returns null when all required ingredients and quantities are available.
     private String getRecipeFailureReason(
-            long recipeId, Map<String, Double> pantry) {
+            long recipeId,
+            Map<String, Double> pantry) {
 
         boolean hasIngredients = false;
 
@@ -259,40 +249,37 @@ public class SuggestedRecipesActivity extends AppCompatActivity {
                 Double available = pantry.get(key);
 
                 if (available == null) {
-                    return "Missing " + originalName +
-                            " (requires " + needed + " " +
-                            originalUnit + ").";
+                    return "Missing " + originalName
+                            + " (requires " + needed + " "
+                            + originalUnit + ")";
                 }
 
                 if (available + 0.000001 < needed) {
-                    return "Insufficient " + originalName +
-                            ": requires " + needed + " " +
-                            originalUnit + ", but you have " +
-                            available + " " + originalUnit + ".";
+                    return "Not enough " + originalName
+                            + " (needs " + needed + " "
+                            + originalUnit + "; have "
+                            + available + " " + originalUnit + ")";
                 }
             }
         }
 
         if (!hasIngredients) {
-            return "This recipe has no ingredient records.";
+            return "No ingredient records available";
         }
 
         return null;
     }
 
-    private boolean canMakeRecipe(
-            long recipeId, Map<String, Double> pantry) {
-        return getRecipeFailureReason(recipeId, pantry) == null;
-    }
-
     private String normalize(String value) {
-        String result = value == null ? "" :
-                value.trim().toLowerCase(Locale.ROOT);
+        String result = value == null
+                ? ""
+                : value.trim().toLowerCase(Locale.ROOT);
 
         if (result.endsWith("ies") && result.length() > 3) {
             result = result.substring(0, result.length() - 3) + "y";
-        } else if (result.endsWith("s") &&
-                !result.endsWith("ss") && result.length() > 1) {
+        } else if (result.endsWith("s")
+                && !result.endsWith("ss")
+                && result.length() > 1) {
             result = result.substring(0, result.length() - 1);
         }
 
@@ -305,23 +292,31 @@ public class SuggestedRecipesActivity extends AppCompatActivity {
         switch (unit) {
             case "gram":
                 return "g";
+
             case "kilogram":
                 return "kg";
+
             case "milliliter":
             case "millilitre":
                 return "ml";
+
             case "liter":
             case "litre":
                 return "l";
+
             case "piece":
             case "item":
                 return "items";
+
             case "clove":
                 return "cloves";
+
             case "cup":
                 return "cups";
+
             case "slice":
                 return "slices";
+
             default:
                 return unit;
         }
