@@ -10,7 +10,7 @@ import android.database.sqlite.SQLiteOpenHelper;
 public class RecipeDatabaseHelper extends SQLiteOpenHelper {
 
     private static final String DATABASE_NAME = "smart_recipes.db";
-    private static final int DATABASE_VERSION = 1;
+    private static final int DATABASE_VERSION = 2;
 
     public static final String RECIPES = "recipes";
     public static final String RECIPE_INGREDIENTS = "recipe_ingredients";
@@ -35,15 +35,20 @@ public class RecipeDatabaseHelper extends SQLiteOpenHelper {
                 "FOREIGN KEY(recipe_id) REFERENCES recipes(id))");
 
         seedRecipes(db);
+        seedAdditionalRecipes(db);
     }
 
     @Override
     public void onUpgrade(
             SQLiteDatabase db, int oldVersion, int newVersion) {
-        // Keep existing recipes when the database version is unchanged.
+
+        if (oldVersion < 2) {
+            seedAdditionalRecipes(db);
+        }
     }
 
     private void seedRecipes(SQLiteDatabase db) {
+
         addRecipe(db, "Tomato and Onion Pasta",
                 "1. Boil pasta until tender.\n" +
                         "2. Chop and cook the onion and tomatoes.\n" +
@@ -165,6 +170,54 @@ public class RecipeDatabaseHelper extends SQLiteOpenHelper {
                 new String[]{"items", "cloves", "items", "g"});
     }
 
+    private void seedAdditionalRecipes(SQLiteDatabase db) {
+
+        addRecipe(db, "Creamy Tomato Chickpea Curry",
+                "1. Chop and cook the onion until soft.\n" +
+                        "2. Add chickpeas, tomatoes and curry spices.\n" +
+                        "3. Stir in milk and simmer until creamy and heated through.\n" +
+                        "4. Serve warm with rice or bread.",
+                new String[]{"chickpea", "tomato", "onion", "milk"},
+                new double[]{400, 2, 1, 100},
+                new String[]{"g", "items", "items", "ml"});
+
+        addRecipe(db, "Cheesy Potato Fritters",
+                "1. Peel and grate the potatoes.\n" +
+                        "2. Mix with cheese, flour and egg.\n" +
+                        "3. Shape into small fritters.\n" +
+                        "4. Pan-fry until golden and cooked through.",
+                new String[]{"potato", "cheese", "flour", "egg"},
+                new double[]{300, 50, 50, 1},
+                new String[]{"g", "g", "g", "items"});
+
+        addRecipe(db, "Garlic Carrot Rice",
+                "1. Cook the rice until tender.\n" +
+                        "2. Grate the carrot and chop the garlic.\n" +
+                        "3. Melt the butter in a pan and cook the carrot and garlic.\n" +
+                        "4. Stir in the rice and serve warm.",
+                new String[]{"rice", "carrot", "garlic", "butter"},
+                new double[]{200, 1, 2, 20},
+                new String[]{"g", "items", "cloves", "g"});
+
+        addRecipe(db, "Cinnamon Banana Toast",
+                "1. Mash the banana with a pinch of cinnamon.\n" +
+                        "2. Beat the egg in a bowl and dip the bread into it.\n" +
+                        "3. Cook the bread in a lightly buttered pan until golden.\n" +
+                        "4. Top with the banana mixture and serve.",
+                new String[]{"bread", "banana", "egg", "cinnamon", "butter"},
+                new double[]{2, 1, 1, 1, 10},
+                new String[]{"slices", "items", "items", "g", "g"});
+
+        addRecipe(db, "Creamy Garlic Spinach Pasta",
+                "1. Boil the pasta until tender and drain.\n" +
+                        "2. Melt butter and gently cook the chopped garlic.\n" +
+                        "3. Add spinach and cook until wilted.\n" +
+                        "4. Stir in milk, then mix with the pasta and serve.",
+                new String[]{"pasta", "spinach", "garlic", "milk", "butter"},
+                new double[]{200, 100, 2, 100, 20},
+                new String[]{"g", "g", "cloves", "ml", "g"});
+    }
+
     private void addRecipe(
             SQLiteDatabase db,
             String name,
@@ -204,9 +257,7 @@ public class RecipeDatabaseHelper extends SQLiteOpenHelper {
     public Cursor getRecipeIngredients(long recipeId) {
         return getReadableDatabase().query(
                 RECIPE_INGREDIENTS,
-                new String[]{
-                        "ingredient_name", "quantity", "unit"
-                },
+                new String[]{"ingredient_name", "quantity", "unit"},
                 "recipe_id = ?",
                 new String[]{String.valueOf(recipeId)},
                 null, null, "ingredient_name ASC");
