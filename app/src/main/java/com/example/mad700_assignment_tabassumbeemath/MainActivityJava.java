@@ -2,17 +2,21 @@
 package com.example.mad700_assignment_tabassumbeemath;
 
 import android.app.AlertDialog;
+import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.database.Cursor;
 import android.graphics.Color;
+import android.graphics.Typeface;
+import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
+import android.text.Editable;
 import android.text.InputType;
+import android.text.TextWatcher;
 import android.view.Gravity;
 import android.view.View;
-import android.view.inputmethod.InputMethodManager;
 import android.view.inputmethod.EditorInfo;
-import android.content.Context;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
@@ -22,6 +26,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
 
 import java.text.ParsePosition;
 import java.text.SimpleDateFormat;
@@ -33,10 +38,12 @@ import java.util.Locale;
 public class MainActivityJava extends AppCompatActivity {
 
     private PantryDatabaseHelper database;
+
     private EditText nameInput, quantityInput, unitInput, expiryInput;
     private EditText searchInput;
     private ArrayAdapter<String> adapter;
     private TextView expiryWarning;
+    private ListView pantryList;
 
     private final ArrayList<String> ingredients = new ArrayList<>();
     private final ArrayList<Long> ingredientIds = new ArrayList<>();
@@ -47,92 +54,245 @@ public class MainActivityJava extends AppCompatActivity {
     private static final String PREFS_NAME = "SmartPantrySettings";
     private static final String EXPIRY_ALERTS_KEY = "expiry_alerts_enabled";
 
+    private int color(String name) {
+        switch (name) {
+            case "terracotta":
+                return ContextCompat.getColor(this, R.color.terracotta);
+            case "terracotta_dark":
+                return ContextCompat.getColor(this, R.color.terracotta_dark);
+            case "oat":
+                return ContextCompat.getColor(this, R.color.oat);
+            case "espresso":
+                return ContextCompat.getColor(this, R.color.espresso);
+            case "muted_brown":
+                return ContextCompat.getColor(this, R.color.muted_brown);
+            case "soft_border":
+                return ContextCompat.getColor(this, R.color.soft_border);
+            case "soft_red":
+                return ContextCompat.getColor(this, R.color.soft_red);
+            case "soft_green":
+                return ContextCompat.getColor(this, R.color.soft_green);
+            case "card_white":
+                return ContextCompat.getColor(this, R.color.card_white);
+            default:
+                return ContextCompat.getColor(this, R.color.warm_ivory);
+        }
+    }
+
+    private int dp(float value) {
+        return Math.round(value * getResources().getDisplayMetrics().density);
+    }
+
+    private GradientDrawable roundedBackground(int backgroundColor, int strokeColor) {
+        GradientDrawable drawable = new GradientDrawable();
+        drawable.setColor(backgroundColor);
+        drawable.setCornerRadius(dp(16));
+
+        if (strokeColor != Color.TRANSPARENT) {
+            drawable.setStroke(dp(1), strokeColor);
+        }
+
+        return drawable;
+    }
+
+    private LinearLayout verticalLayout() {
+        LinearLayout layout = new LinearLayout(this);
+        layout.setOrientation(LinearLayout.VERTICAL);
+        return layout;
+    }
+
+    private LinearLayout.LayoutParams margins(
+            int width, int height, int bottom) {
+
+        LinearLayout.LayoutParams params =
+                new LinearLayout.LayoutParams(width, height);
+
+        params.bottomMargin = dp(bottom);
+        return params;
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
         database = new PantryDatabaseHelper(this);
 
-        LinearLayout layout = new LinearLayout(this);
-        layout.setOrientation(LinearLayout.VERTICAL);
-        layout.setPadding(32, 24, 32, 8);
+        getWindow().setStatusBarColor(color("warm_ivory"));
+        getWindow().setNavigationBarColor(color("warm_ivory"));
+        getWindow().getDecorView().setSystemUiVisibility(
+                View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
+                        | View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
+        );
 
+        LinearLayout root = verticalLayout();
+        root.setBackgroundColor(color("warm_ivory"));
+        root.setPadding(dp(20), dp(12), dp(20), dp(8));
+
+        // Brand heading
         TextView heading = new TextView(this);
-        heading.setText("Smart Pantry Manager");
-        heading.setTextSize(26);
+        heading.setText("Smart Pantry");
+        heading.setTextSize(28);
+        heading.setTextColor(color("espresso"));
+        heading.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         heading.setGravity(Gravity.CENTER);
-        heading.setPadding(0, 8, 0, 16);
-        layout.addView(heading);
+        heading.setPadding(0, dp(8), 0, dp(2));
+        root.addView(heading, margins(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT, 0));
 
+        TextView tagline = new TextView(this);
+        tagline.setText("Make the most of what you have.");
+        tagline.setTextSize(14);
+        tagline.setTextColor(color("muted_brown"));
+        tagline.setGravity(Gravity.CENTER);
+        tagline.setPadding(0, 0, 0, dp(16));
+        root.addView(tagline, margins(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT, 12));
+
+        // Expiry warning card
         expiryWarning = new TextView(this);
-        expiryWarning.setTextSize(16);
-        expiryWarning.setPadding(16, 12, 16, 12);
+        expiryWarning.setTextSize(13);
+        expiryWarning.setTextColor(color("espresso"));
+        expiryWarning.setPadding(dp(14), dp(12), dp(14), dp(12));
+        expiryWarning.setBackground(
+                roundedBackground(color("soft_red"), Color.TRANSPARENT));
         expiryWarning.setVisibility(View.GONE);
-        layout.addView(expiryWarning);
 
-        Button recipesButton = new Button(this);
-        recipesButton.setText("Find Recipes I Can Make");
-        layout.addView(recipesButton);
+        root.addView(expiryWarning, margins(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT, 12));
 
-        Button settingsButton = new Button(this);
-        settingsButton.setText("Settings");
-        layout.addView(settingsButton);
+        // Main navigation buttons
+        LinearLayout navigationRow = new LinearLayout(this);
+        navigationRow.setOrientation(LinearLayout.HORIZONTAL);
+        navigationRow.setGravity(Gravity.CENTER_VERTICAL);
 
-        TextView subtitle = new TextView(this);
-        subtitle.setText("My Pantry");
-        subtitle.setTextSize(20);
-        layout.addView(subtitle);
+        Button recipesButton = createButton("Find Recipes", true);
+        Button settingsButton = createButton("Settings", false);
+
+        LinearLayout.LayoutParams navParams = new LinearLayout.LayoutParams(
+                0, dp(48), 1);
+
+        navParams.setMargins(0, 0, dp(8), 0);
+        navigationRow.addView(recipesButton, navParams);
+
+        LinearLayout.LayoutParams settingsParams =
+                new LinearLayout.LayoutParams(0, dp(48), 1);
+        settingsParams.setMargins(dp(8), 0, 0, 0);
+        navigationRow.addView(settingsButton, settingsParams);
+
+        root.addView(navigationRow, margins(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT, 18));
+
+        // Pantry section heading
+        TextView pantryHeading = new TextView(this);
+        pantryHeading.setText("My Pantry");
+        pantryHeading.setTextSize(21);
+        pantryHeading.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        pantryHeading.setTextColor(color("espresso"));
+
+        root.addView(pantryHeading, margins(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT, 4));
+
+        TextView pantrySubtitle = new TextView(this);
+        pantrySubtitle.setText("Keep track of your ingredients");
+        pantrySubtitle.setTextSize(13);
+        pantrySubtitle.setTextColor(color("muted_brown"));
+
+        root.addView(pantrySubtitle, margins(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT, 12));
+
+        // Ingredient form card
+        LinearLayout formCard = verticalLayout();
+        formCard.setPadding(dp(14), dp(12), dp(14), dp(14));
+        formCard.setBackground(
+                roundedBackground(color("oat"), color("soft_border")));
 
         nameInput = createInput("Ingredient name");
-        layout.addView(nameInput);
+        formCard.addView(nameInput, margins(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dp(50), 8));
 
         quantityInput = createInput("Quantity (e.g. 2)");
         quantityInput.setInputType(
-                InputType.TYPE_CLASS_NUMBER |
-                        InputType.TYPE_NUMBER_FLAG_DECIMAL);
-        layout.addView(quantityInput);
+                InputType.TYPE_CLASS_NUMBER
+                        | InputType.TYPE_NUMBER_FLAG_DECIMAL);
+
+        formCard.addView(quantityInput, margins(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dp(50), 8));
 
         unitInput = createInput("Unit (e.g. kg, g, cups, items)");
-        layout.addView(unitInput);
+        formCard.addView(unitInput, margins(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dp(50), 8));
 
         expiryInput = createInput("Expiry date (optional: YYYY-MM-DD)");
-        layout.addView(expiryInput);
+        formCard.addView(expiryInput, margins(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dp(50), 12));
 
-        Button addButton = new Button(this);
-        addButton.setText("Add Ingredient");
-        layout.addView(addButton);
+        Button addButton = createButton("+  Add Ingredient", true);
+        formCard.addView(addButton, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(48)));
 
-        // Pantry search field.
-        searchInput = createInput("Search pantry ingredients...");
+        root.addView(formCard, margins(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT, 16));
+
+        // Search row
+        LinearLayout searchRow = new LinearLayout(this);
+        searchRow.setOrientation(LinearLayout.HORIZONTAL);
+        searchRow.setGravity(Gravity.CENTER_VERTICAL);
+
+        searchInput = createInput("Search ingredients...");
         searchInput.setImeOptions(EditorInfo.IME_ACTION_SEARCH);
-        layout.addView(searchInput);
 
-        // Search button hides the keyboard and displays the results.
-        Button searchButton = new Button(this);
-        searchButton.setText("Search Pantry");
-        layout.addView(searchButton);
+        LinearLayout.LayoutParams searchInputParams =
+                new LinearLayout.LayoutParams(0, dp(50), 1);
+        searchInputParams.setMargins(0, 0, dp(8), 0);
+        searchRow.addView(searchInput, searchInputParams);
 
-        TextView hint = new TextView(this);
-        hint.setText("Tap an ingredient to edit it. Hold it to delete.");
-        hint.setPadding(0, 8, 0, 8);
-        layout.addView(hint);
+        Button searchButton = createButton("Search", false);
+        searchRow.addView(searchButton, new LinearLayout.LayoutParams(
+                dp(92), dp(50)));
 
-        ListView pantryList = new ListView(this);
+        root.addView(searchRow, margins(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT, 12));
 
-        adapter = new ArrayAdapter<>(
-                this,
-                android.R.layout.simple_list_item_1,
-                ingredients);
+        TextView listHint = new TextView(this);
+        listHint.setText("Tap an ingredient to edit it  •  Hold to delete");
+        listHint.setTextSize(12);
+        listHint.setTextColor(color("muted_brown"));
 
+        root.addView(listHint, margins(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT, 8));
+
+        // Pantry list with a custom adapter
+        pantryList = new ListView(this);
+        pantryList.setDividerHeight(dp(8));
+        pantryList.setDivider(null);
+        pantryList.setBackgroundColor(Color.TRANSPARENT);
+        pantryList.setPadding(0, 0, 0, dp(4));
+        pantryList.setClipToPadding(false);
+
+        adapter = new PantryAdapter();
         pantryList.setAdapter(adapter);
 
-        layout.addView(pantryList, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, 0, 1));
+        LinearLayout.LayoutParams listParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, 0, 1);
 
-        setContentView(layout);
+        root.addView(pantryList, listParams);
 
-        addButton.setOnClickListener(v -> addIngredient());
+        setContentView(root);
 
+        // Preserve navigation
         recipesButton.setOnClickListener(v -> {
             Intent intent = new Intent(
                     MainActivityJava.this,
@@ -147,10 +307,9 @@ public class MainActivityJava extends AppCompatActivity {
             startActivity(intent);
         });
 
-        // Filter the pantry when the Search Pantry button is pressed.
+        addButton.setOnClickListener(v -> addIngredient());
         searchButton.setOnClickListener(v -> performSearch());
 
-        // Pressing Search on the keyboard also hides it.
         searchInput.setOnEditorActionListener((view, actionId, event) -> {
             if (actionId == EditorInfo.IME_ACTION_SEARCH
                     || actionId == EditorInfo.IME_ACTION_DONE) {
@@ -160,8 +319,7 @@ public class MainActivityJava extends AppCompatActivity {
             return false;
         });
 
-        // Update results as the user types.
-        searchInput.addTextChangedListener(new android.text.TextWatcher() {
+        searchInput.addTextChangedListener(new TextWatcher() {
             @Override
             public void beforeTextChanged(
                     CharSequence s, int start, int count, int after) {
@@ -174,7 +332,7 @@ public class MainActivityJava extends AppCompatActivity {
             }
 
             @Override
-            public void afterTextChanged(android.text.Editable s) {
+            public void afterTextChanged(Editable s) {
             }
         });
 
@@ -184,23 +342,61 @@ public class MainActivityJava extends AppCompatActivity {
             }
         });
 
-        pantryList.setOnItemLongClickListener((parent, view, position, id) -> {
-            if (position < ingredientIds.size()) {
-                confirmDelete(
-                        ingredientIds.get(position),
-                        ingredients.get(position));
-            }
-            return true;
-        });
+        pantryList.setOnItemLongClickListener(
+                (parent, view, position, id) -> {
+                    if (position < ingredientIds.size()) {
+                        confirmDelete(
+                                ingredientIds.get(position),
+                                ingredients.get(position));
+                    }
+                    return true;
+                });
 
         loadIngredients();
+    }
+
+    private Button createButton(String text, boolean primary) {
+        Button button = new Button(this);
+        button.setText(text);
+        button.setAllCaps(false);
+        button.setTextSize(14);
+        button.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        button.setPadding(dp(12), dp(8), dp(12), dp(8));
+        button.setMinHeight(dp(48));
+        button.setStateListAnimator(null);
+
+        if (primary) {
+            button.setTextColor(Color.WHITE);
+            button.setBackground(roundedBackground(
+                    color("terracotta"), Color.TRANSPARENT));
+        } else {
+            button.setTextColor(color("terracotta_dark"));
+            button.setBackground(roundedBackground(
+                    color("card_white"), color("soft_border")));
+        }
+
+        return button;
+    }
+
+    private EditText createInput(String hint) {
+        EditText input = new EditText(this);
+        input.setHint(hint);
+        input.setSingleLine(true);
+        input.setTextSize(14);
+        input.setTextColor(color("espresso"));
+        input.setHintTextColor(color("muted_brown"));
+        input.setPadding(dp(14), dp(8), dp(14), dp(8));
+        input.setBackground(roundedBackground(
+                color("card_white"), color("soft_border")));
+        input.setSelectAllOnFocus(false);
+        return input;
     }
 
     private void performSearch() {
         filterIngredients(searchInput.getText().toString());
 
-        InputMethodManager keyboard =
-                (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+        InputMethodManager keyboard = (InputMethodManager)
+                getSystemService(Context.INPUT_METHOD_SERVICE);
 
         if (keyboard != null) {
             keyboard.hideSoftInputFromWindow(
@@ -222,13 +418,6 @@ public class MainActivityJava extends AppCompatActivity {
         if (database != null && adapter != null) {
             loadIngredients();
         }
-    }
-
-    private EditText createInput(String hint) {
-        EditText input = new EditText(this);
-        input.setHint(hint);
-        input.setSingleLine(true);
-        return input;
     }
 
     private void addIngredient() {
@@ -334,6 +523,10 @@ public class MainActivityJava extends AppCompatActivity {
     }
 
     private void updateExpiryWarnings() {
+        if (expiryWarning == null) {
+            return;
+        }
+
         SharedPreferences preferences = getSharedPreferences(
                 PREFS_NAME, MODE_PRIVATE);
 
@@ -378,11 +571,13 @@ public class MainActivityJava extends AppCompatActivity {
                 expiryCalendar.set(Calendar.MINUTE, 0);
                 expiryCalendar.set(Calendar.SECOND, 0);
                 expiryCalendar.set(Calendar.MILLISECOND, 0);
+
                 Date normalizedExpiry = expiryCalendar.getTime();
 
                 if (normalizedExpiry.before(today.getTime())) {
                     expired.add(name + " (expired " + expiryText + ")");
-                } else if (!normalizedExpiry.after(threeDaysFromNow.getTime())) {
+                } else if (!normalizedExpiry.after(
+                        threeDaysFromNow.getTime())) {
                     expiringSoon.add(name + " (expires " + expiryText + ")");
                 }
             }
@@ -414,8 +609,9 @@ public class MainActivityJava extends AppCompatActivity {
         }
 
         expiryWarning.setText(message.toString().trim());
-        expiryWarning.setTextColor(Color.rgb(140, 45, 0));
-        expiryWarning.setBackgroundColor(Color.rgb(255, 235, 205));
+        expiryWarning.setTextColor(color("terracotta_dark"));
+        expiryWarning.setBackground(roundedBackground(
+                color("soft_red"), color("soft_border")));
         expiryWarning.setVisibility(View.VISIBLE);
     }
 
@@ -458,84 +654,105 @@ public class MainActivityJava extends AppCompatActivity {
             oldExpiry = cursor.getString(3);
         }
 
-        LinearLayout form = new LinearLayout(this);
-        form.setOrientation(LinearLayout.VERTICAL);
-        form.setPadding(40, 8, 40, 0);
+        LinearLayout form = verticalLayout();
+        form.setPadding(dp(20), dp(8), dp(20), 0);
 
         EditText name = createInput("Ingredient name");
         name.setText(oldName);
-        form.addView(name);
+        form.addView(name, margins(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(50), 8));
 
         EditText quantity = createInput("Quantity");
         quantity.setInputType(
-                InputType.TYPE_CLASS_NUMBER |
-                        InputType.TYPE_NUMBER_FLAG_DECIMAL);
+                InputType.TYPE_CLASS_NUMBER
+                        | InputType.TYPE_NUMBER_FLAG_DECIMAL);
         quantity.setText(oldQuantity);
-        form.addView(quantity);
+        form.addView(quantity, margins(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(50), 8));
 
         EditText unit = createInput("Unit");
         unit.setText(oldUnit);
-        form.addView(unit);
+        form.addView(unit, margins(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(50), 8));
 
         EditText expiry = createInput("Expiry date (YYYY-MM-DD)");
         expiry.setText(oldExpiry == null ? "" : oldExpiry);
-        form.addView(expiry);
+        form.addView(expiry, margins(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(50), 0));
 
-        new AlertDialog.Builder(this)
+        AlertDialog dialog = new AlertDialog.Builder(this)
                 .setTitle("Edit Ingredient")
                 .setView(form)
                 .setNegativeButton("Cancel", null)
-                .setPositiveButton("Save Changes", (dialog, which) -> {
-                    String newName = name.getText().toString().trim();
-                    String quantityText = quantity.getText().toString().trim();
-                    String newUnit = unit.getText().toString().trim();
-                    String newExpiry = expiry.getText().toString().trim();
+                .setPositiveButton("Save Changes", null)
+                .create();
 
-                    if (newName.isEmpty() || quantityText.isEmpty()
-                            || newUnit.isEmpty()) {
-                        showMessage("Name, quantity and unit are required.");
-                        return;
-                    }
+        dialog.setOnShowListener(ignored -> {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+                    .setTextColor(color("terracotta"));
+            dialog.getButton(AlertDialog.BUTTON_NEGATIVE)
+                    .setTextColor(color("muted_brown"));
 
-                    double newQuantity;
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+                    .setOnClickListener(v -> {
+                        String newName = name.getText().toString().trim();
+                        String quantityText =
+                                quantity.getText().toString().trim();
+                        String newUnit = unit.getText().toString().trim();
+                        String newExpiry = expiry.getText().toString().trim();
 
-                    try {
-                        newQuantity = Double.parseDouble(quantityText);
-                    } catch (NumberFormatException e) {
-                        showMessage("Enter a valid quantity.");
-                        return;
-                    }
+                        if (newName.isEmpty() || quantityText.isEmpty()
+                                || newUnit.isEmpty()) {
+                            showMessage(
+                                    "Name, quantity and unit are required.");
+                            return;
+                        }
 
-                    if (!Double.isFinite(newQuantity) || newQuantity <= 0) {
-                        showMessage("Quantity must be greater than zero.");
-                        return;
-                    }
+                        double newQuantity;
 
-                    if (!validExpiry(newExpiry)) {
-                        showMessage("Use a real date in YYYY-MM-DD format.");
-                        return;
-                    }
+                        try {
+                            newQuantity = Double.parseDouble(quantityText);
+                        } catch (NumberFormatException e) {
+                            showMessage("Enter a valid quantity.");
+                            return;
+                        }
 
-                    int updated = database.updateIngredient(
-                            id, newName, newQuantity, newUnit,
-                            emptyToNull(newExpiry));
+                        if (!Double.isFinite(newQuantity)
+                                || newQuantity <= 0) {
+                            showMessage(
+                                    "Quantity must be greater than zero.");
+                            return;
+                        }
 
-                    if (updated > 0) {
-                        showMessage("Ingredient updated!");
-                        loadIngredients();
-                    } else {
-                        showMessage("No changes were saved.");
-                    }
-                })
-                .show();
+                        if (!validExpiry(newExpiry)) {
+                            showMessage(
+                                    "Use a real date in YYYY-MM-DD format.");
+                            return;
+                        }
+
+                        int updated = database.updateIngredient(
+                                id, newName, newQuantity, newUnit,
+                                emptyToNull(newExpiry));
+
+                        if (updated > 0) {
+                            showMessage("Ingredient updated!");
+                            dialog.dismiss();
+                            loadIngredients();
+                        } else {
+                            showMessage("No changes were saved.");
+                        }
+                    });
+        });
+
+        dialog.show();
     }
 
     private void confirmDelete(long id, String displayText) {
-        new AlertDialog.Builder(this)
+        AlertDialog dialog = new AlertDialog.Builder(this)
                 .setTitle("Delete ingredient?")
                 .setMessage("Remove this ingredient?\n\n" + displayText)
                 .setNegativeButton("Cancel", null)
-                .setPositiveButton("Delete", (dialog, which) -> {
+                .setPositiveButton("Delete", (ignored, which) -> {
                     int deleted = database.deleteIngredient(id);
 
                     if (deleted > 0) {
@@ -545,7 +762,16 @@ public class MainActivityJava extends AppCompatActivity {
                         showMessage("Could not delete ingredient.");
                     }
                 })
-                .show();
+                .create();
+
+        dialog.setOnShowListener(ignored -> {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+                    .setTextColor(color("terracotta"));
+            dialog.getButton(AlertDialog.BUTTON_NEGATIVE)
+                    .setTextColor(color("muted_brown"));
+        });
+
+        dialog.show();
     }
 
     private boolean validExpiry(String expiry) {
@@ -558,6 +784,41 @@ public class MainActivityJava extends AppCompatActivity {
 
     private void showMessage(String message) {
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
+    }
+
+    // Custom adapter for styled pantry ingredient rows.
+    private class PantryAdapter extends ArrayAdapter<String> {
+
+        PantryAdapter() {
+            super(MainActivityJava.this,
+                    android.R.layout.simple_list_item_1, ingredients);
+        }
+
+        @Override
+        public View getView(int position, View convertView,
+                            android.view.ViewGroup parent) {
+
+            TextView itemView;
+
+            if (convertView instanceof TextView) {
+                itemView = (TextView) convertView;
+            } else {
+                itemView = new TextView(MainActivityJava.this);
+            }
+
+            itemView.setText(getItem(position));
+            itemView.setTextSize(14);
+            itemView.setTextColor(color("espresso"));
+            itemView.setGravity(Gravity.CENTER_VERTICAL);
+            itemView.setPadding(dp(16), dp(12), dp(16), dp(12));
+            itemView.setMinHeight(dp(58));
+            itemView.setMaxLines(3);
+            itemView.setLineSpacing(dp(2), 1.0f);
+            itemView.setBackground(roundedBackground(
+                    color("card_white"), color("soft_border")));
+
+            return itemView;
+        }
     }
 
     @Override
