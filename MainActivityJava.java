@@ -1,0 +1,571 @@
+
+package com.example.mad700_assignment_tabassumbeemath;
+
+import android.app.AlertDialog;
+import android.content.Intent;
+import android.content.SharedPreferences;
+import android.database.Cursor;
+import android.graphics.Color;
+import android.os.Bundle;
+import android.text.InputType;
+import android.view.Gravity;
+import android.view.View;
+import android.view.inputmethod.InputMethodManager;
+import android.view.inputmethod.EditorInfo;
+import android.content.Context;
+import android.widget.ArrayAdapter;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.LinearLayout;
+import android.widget.ListView;
+import android.widget.TextView;
+import android.widget.Toast;
+
+import androidx.appcompat.app.AppCompatActivity;
+
+import java.text.ParsePosition;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.Locale;
+
+public class MainActivityJava extends AppCompatActivity {
+
+    private PantryDatabaseHelper database;
+    private EditText nameInput, quantityInput, unitInput, expiryInput;
+    private EditText searchInput;
+    private ArrayAdapter<String> adapter;
+    private TextView expiryWarning;
+
+    private final ArrayList<String> ingredients = new ArrayList<>();
+    private final ArrayList<Long> ingredientIds = new ArrayList<>();
+
+    private final ArrayList<String> allIngredients = new ArrayList<>();
+    private final ArrayList<Long> allIngredientIds = new ArrayList<>();
+
+    private static final String PREFS_NAME = "SmartPantrySettings";
+    private static final String EXPIRY_ALERTS_KEY = "expiry_alerts_enabled";
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+
+        database = new PantryDatabaseHelper(this);
+
+        LinearLayout layout = new LinearLayout(this);
+        layout.setOrientation(LinearLayout.VERTICAL);
+        layout.setPadding(32, 24, 32, 8);
+
+        TextView heading = new TextView(this);
+        heading.setText("Smart Pantry Manager");
+        heading.setTextSize(26);
+        heading.setGravity(Gravity.CENTER);
+        heading.setPadding(0, 8, 0, 16);
+        layout.addView(heading);
+
+        expiryWarning = new TextView(this);
+        expiryWarning.setTextSize(16);
+        expiryWarning.setPadding(16, 12, 16, 12);
+        expiryWarning.setVisibility(View.GONE);
+        layout.addView(expiryWarning);
+
+        Button recipesButton = new Button(this);
+        recipesButton.setText("Find Recipes I Can Make");
+        layout.addView(recipesButton);
+
+        Button settingsButton = new Button(this);
+        settingsButton.setText("Settings");
+        layout.addView(settingsButton);
+
+        TextView subtitle = new TextView(this);
+        subtitle.setText("My Pantry");
+        subtitle.setTextSize(20);
+        layout.addView(subtitle);
+
+        nameInput = createInput("Ingredient name");
+        layout.addView(nameInput);
+
+        quantityInput = createInput("Quantity (e.g. 2)");
+        quantityInput.setInputType(
+                InputType.TYPE_CLASS_NUMBER |
+                        InputType.TYPE_NUMBER_FLAG_DECIMAL);
+        layout.addView(quantityInput);
+
+        unitInput = createInput("Unit (e.g. kg, g, cups, items)");
+        layout.addView(unitInput);
+
+        expiryInput = createInput("Expiry date (optional: YYYY-MM-DD)");
+        layout.addView(expiryInput);
+
+        Button addButton = new Button(this);
+        addButton.setText("Add Ingredient");
+        layout.addView(addButton);
+
+        // Pantry search field.
+        searchInput = createInput("Search pantry ingredients...");
+        searchInput.setImeOptions(EditorInfo.IME_ACTION_SEARCH);
+        layout.addView(searchInput);
+
+        // Search button hides the keyboard and displays the results.
+        Button searchButton = new Button(this);
+        searchButton.setText("Search Pantry");
+        layout.addView(searchButton);
+
+        TextView hint = new TextView(this);
+        hint.setText("Tap an ingredient to edit it. Hold it to delete.");
+        hint.setPadding(0, 8, 0, 8);
+        layout.addView(hint);
+
+        ListView pantryList = new ListView(this);
+
+        adapter = new ArrayAdapter<>(
+                this,
+                android.R.layout.simple_list_item_1,
+                ingredients);
+
+        pantryList.setAdapter(adapter);
+
+        layout.addView(pantryList, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, 0, 1));
+
+        setContentView(layout);
+
+        addButton.setOnClickListener(v -> addIngredient());
+
+        recipesButton.setOnClickListener(v -> {
+            Intent intent = new Intent(
+                    MainActivityJava.this,
+                    SuggestedRecipesActivity.class);
+            startActivity(intent);
+        });
+
+        settingsButton.setOnClickListener(v -> {
+            Intent intent = new Intent(
+                    MainActivityJava.this,
+                    SettingsActivity.class);
+            startActivity(intent);
+        });
+
+        // Filter the pantry when the Search Pantry button is pressed.
+        searchButton.setOnClickListener(v -> performSearch());
+
+        // Pressing Search on the keyboard also hides it.
+        searchInput.setOnEditorActionListener((view, actionId, event) -> {
+            if (actionId == EditorInfo.IME_ACTION_SEARCH
+                    || actionId == EditorInfo.IME_ACTION_DONE) {
+                performSearch();
+                return true;
+            }
+            return false;
+        });
+
+        // Update results as the user types.
+        searchInput.addTextChangedListener(new android.text.TextWatcher() {
+            @Override
+            public void beforeTextChanged(
+                    CharSequence s, int start, int count, int after) {
+            }
+
+            @Override
+            public void onTextChanged(
+                    CharSequence s, int start, int before, int count) {
+                filterIngredients(s.toString());
+            }
+
+            @Override
+            public void afterTextChanged(android.text.Editable s) {
+            }
+        });
+
+        pantryList.setOnItemClickListener((parent, view, position, id) -> {
+            if (position < ingredientIds.size()) {
+                editIngredient(ingredientIds.get(position));
+            }
+        });
+
+        pantryList.setOnItemLongClickListener((parent, view, position, id) -> {
+            if (position < ingredientIds.size()) {
+                confirmDelete(
+                        ingredientIds.get(position),
+                        ingredients.get(position));
+            }
+            return true;
+        });
+
+        loadIngredients();
+    }
+
+    private void performSearch() {
+        filterIngredients(searchInput.getText().toString());
+
+        InputMethodManager keyboard =
+                (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+
+        if (keyboard != null) {
+            keyboard.hideSoftInputFromWindow(
+                    searchInput.getWindowToken(), 0);
+        }
+
+        searchInput.clearFocus();
+
+        Toast.makeText(
+                this,
+                ingredients.size() + " matching ingredient(s)",
+                Toast.LENGTH_SHORT).show();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+
+        if (database != null && adapter != null) {
+            loadIngredients();
+        }
+    }
+
+    private EditText createInput(String hint) {
+        EditText input = new EditText(this);
+        input.setHint(hint);
+        input.setSingleLine(true);
+        return input;
+    }
+
+    private void addIngredient() {
+        String name = nameInput.getText().toString().trim();
+        String quantityText = quantityInput.getText().toString().trim();
+        String unit = unitInput.getText().toString().trim();
+        String expiry = expiryInput.getText().toString().trim();
+
+        if (name.isEmpty() || quantityText.isEmpty() || unit.isEmpty()) {
+            showMessage("Enter the name, quantity and unit.");
+            return;
+        }
+
+        double quantity;
+
+        try {
+            quantity = Double.parseDouble(quantityText);
+        } catch (NumberFormatException e) {
+            showMessage("Enter a valid quantity.");
+            return;
+        }
+
+        if (!Double.isFinite(quantity) || quantity <= 0) {
+            showMessage("Quantity must be greater than zero.");
+            return;
+        }
+
+        if (!validExpiry(expiry)) {
+            showMessage("Use a real date in YYYY-MM-DD format.");
+            return;
+        }
+
+        long result = database.addIngredient(
+                name, quantity, unit, emptyToNull(expiry));
+
+        if (result != -1) {
+            showMessage("Ingredient saved!");
+            nameInput.setText("");
+            quantityInput.setText("");
+            unitInput.setText("");
+            expiryInput.setText("");
+            loadIngredients();
+        } else {
+            showMessage("Could not save ingredient.");
+        }
+    }
+
+    private void loadIngredients() {
+        allIngredients.clear();
+        allIngredientIds.clear();
+
+        try (Cursor cursor = database.getReadableDatabase().query(
+                PantryDatabaseHelper.TABLE_INGREDIENTS,
+                new String[]{
+                        "id", "name", "quantity", "unit", "expiry_date"
+                },
+                null, null, null, null, "name ASC")) {
+
+            while (cursor.moveToNext()) {
+                long id = cursor.getLong(0);
+                String name = cursor.getString(1);
+                double quantity = cursor.getDouble(2);
+                String unit = cursor.getString(3);
+                String expiry = cursor.getString(4);
+
+                String item = name + " — " + quantity + " " + unit;
+
+                if (expiry != null && !expiry.isEmpty()) {
+                    item += "\nExpires: " + expiry;
+                }
+
+                allIngredientIds.add(id);
+                allIngredients.add(item);
+            }
+        }
+
+        filterIngredients(
+                searchInput == null
+                        ? ""
+                        : searchInput.getText().toString());
+
+        updateExpiryWarnings();
+    }
+
+    private void filterIngredients(String searchText) {
+        ingredients.clear();
+        ingredientIds.clear();
+
+        String query = searchText.trim().toLowerCase(Locale.ROOT);
+
+        for (int i = 0; i < allIngredients.size(); i++) {
+            String item = allIngredients.get(i);
+
+            if (item.toLowerCase(Locale.ROOT).contains(query)) {
+                ingredients.add(item);
+                ingredientIds.add(allIngredientIds.get(i));
+            }
+        }
+
+        if (adapter != null) {
+            adapter.notifyDataSetChanged();
+        }
+    }
+
+    private void updateExpiryWarnings() {
+        SharedPreferences preferences = getSharedPreferences(
+                PREFS_NAME, MODE_PRIVATE);
+
+        boolean alertsEnabled = preferences.getBoolean(
+                EXPIRY_ALERTS_KEY, true);
+
+        if (!alertsEnabled) {
+            expiryWarning.setVisibility(View.GONE);
+            return;
+        }
+
+        Calendar today = Calendar.getInstance();
+        today.set(Calendar.HOUR_OF_DAY, 0);
+        today.set(Calendar.MINUTE, 0);
+        today.set(Calendar.SECOND, 0);
+        today.set(Calendar.MILLISECOND, 0);
+
+        Calendar threeDaysFromNow = (Calendar) today.clone();
+        threeDaysFromNow.add(Calendar.DAY_OF_YEAR, 3);
+
+        ArrayList<String> expired = new ArrayList<>();
+        ArrayList<String> expiringSoon = new ArrayList<>();
+
+        try (Cursor cursor = database.getReadableDatabase().query(
+                PantryDatabaseHelper.TABLE_INGREDIENTS,
+                new String[]{"name", "expiry_date"},
+                "expiry_date IS NOT NULL AND expiry_date != ''",
+                null, null, null, "expiry_date ASC")) {
+
+            while (cursor.moveToNext()) {
+                String name = cursor.getString(0);
+                String expiryText = cursor.getString(1);
+                Date expiryDate = parseExpiryDate(expiryText);
+
+                if (expiryDate == null) {
+                    continue;
+                }
+
+                Calendar expiryCalendar = Calendar.getInstance();
+                expiryCalendar.setTime(expiryDate);
+                expiryCalendar.set(Calendar.HOUR_OF_DAY, 0);
+                expiryCalendar.set(Calendar.MINUTE, 0);
+                expiryCalendar.set(Calendar.SECOND, 0);
+                expiryCalendar.set(Calendar.MILLISECOND, 0);
+                Date normalizedExpiry = expiryCalendar.getTime();
+
+                if (normalizedExpiry.before(today.getTime())) {
+                    expired.add(name + " (expired " + expiryText + ")");
+                } else if (!normalizedExpiry.after(threeDaysFromNow.getTime())) {
+                    expiringSoon.add(name + " (expires " + expiryText + ")");
+                }
+            }
+        }
+
+        StringBuilder message = new StringBuilder();
+
+        if (!expired.isEmpty()) {
+            message.append("EXPIRED INGREDIENTS\n");
+            for (String item : expired) {
+                message.append("• ").append(item).append("\n");
+            }
+        }
+
+        if (!expiringSoon.isEmpty()) {
+            if (message.length() > 0) {
+                message.append("\n");
+            }
+
+            message.append("EXPIRING WITHIN 3 DAYS\n");
+            for (String item : expiringSoon) {
+                message.append("• ").append(item).append("\n");
+            }
+        }
+
+        if (message.length() == 0) {
+            expiryWarning.setVisibility(View.GONE);
+            return;
+        }
+
+        expiryWarning.setText(message.toString().trim());
+        expiryWarning.setTextColor(Color.rgb(140, 45, 0));
+        expiryWarning.setBackgroundColor(Color.rgb(255, 235, 205));
+        expiryWarning.setVisibility(View.VISIBLE);
+    }
+
+    private Date parseExpiryDate(String dateText) {
+        SimpleDateFormat format = new SimpleDateFormat(
+                "yyyy-MM-dd", Locale.US);
+        format.setLenient(false);
+
+        ParsePosition position = new ParsePosition(0);
+        Date parsed = format.parse(dateText, position);
+
+        if (parsed == null || position.getIndex() != dateText.length()) {
+            return null;
+        }
+
+        return parsed;
+    }
+
+    private void editIngredient(long id) {
+        String oldName;
+        String oldQuantity;
+        String oldUnit;
+        String oldExpiry;
+
+        try (Cursor cursor = database.getReadableDatabase().query(
+                PantryDatabaseHelper.TABLE_INGREDIENTS,
+                new String[]{"name", "quantity", "unit", "expiry_date"},
+                "id = ?", new String[]{String.valueOf(id)},
+                null, null, null)) {
+
+            if (!cursor.moveToFirst()) {
+                showMessage("Ingredient not found.");
+                loadIngredients();
+                return;
+            }
+
+            oldName = cursor.getString(0);
+            oldQuantity = String.valueOf(cursor.getDouble(1));
+            oldUnit = cursor.getString(2);
+            oldExpiry = cursor.getString(3);
+        }
+
+        LinearLayout form = new LinearLayout(this);
+        form.setOrientation(LinearLayout.VERTICAL);
+        form.setPadding(40, 8, 40, 0);
+
+        EditText name = createInput("Ingredient name");
+        name.setText(oldName);
+        form.addView(name);
+
+        EditText quantity = createInput("Quantity");
+        quantity.setInputType(
+                InputType.TYPE_CLASS_NUMBER |
+                        InputType.TYPE_NUMBER_FLAG_DECIMAL);
+        quantity.setText(oldQuantity);
+        form.addView(quantity);
+
+        EditText unit = createInput("Unit");
+        unit.setText(oldUnit);
+        form.addView(unit);
+
+        EditText expiry = createInput("Expiry date (YYYY-MM-DD)");
+        expiry.setText(oldExpiry == null ? "" : oldExpiry);
+        form.addView(expiry);
+
+        new AlertDialog.Builder(this)
+                .setTitle("Edit Ingredient")
+                .setView(form)
+                .setNegativeButton("Cancel", null)
+                .setPositiveButton("Save Changes", (dialog, which) -> {
+                    String newName = name.getText().toString().trim();
+                    String quantityText = quantity.getText().toString().trim();
+                    String newUnit = unit.getText().toString().trim();
+                    String newExpiry = expiry.getText().toString().trim();
+
+                    if (newName.isEmpty() || quantityText.isEmpty()
+                            || newUnit.isEmpty()) {
+                        showMessage("Name, quantity and unit are required.");
+                        return;
+                    }
+
+                    double newQuantity;
+
+                    try {
+                        newQuantity = Double.parseDouble(quantityText);
+                    } catch (NumberFormatException e) {
+                        showMessage("Enter a valid quantity.");
+                        return;
+                    }
+
+                    if (!Double.isFinite(newQuantity) || newQuantity <= 0) {
+                        showMessage("Quantity must be greater than zero.");
+                        return;
+                    }
+
+                    if (!validExpiry(newExpiry)) {
+                        showMessage("Use a real date in YYYY-MM-DD format.");
+                        return;
+                    }
+
+                    int updated = database.updateIngredient(
+                            id, newName, newQuantity, newUnit,
+                            emptyToNull(newExpiry));
+
+                    if (updated > 0) {
+                        showMessage("Ingredient updated!");
+                        loadIngredients();
+                    } else {
+                        showMessage("No changes were saved.");
+                    }
+                })
+                .show();
+    }
+
+    private void confirmDelete(long id, String displayText) {
+        new AlertDialog.Builder(this)
+                .setTitle("Delete ingredient?")
+                .setMessage("Remove this ingredient?\n\n" + displayText)
+                .setNegativeButton("Cancel", null)
+                .setPositiveButton("Delete", (dialog, which) -> {
+                    int deleted = database.deleteIngredient(id);
+
+                    if (deleted > 0) {
+                        showMessage("Ingredient deleted.");
+                        loadIngredients();
+                    } else {
+                        showMessage("Could not delete ingredient.");
+                    }
+                })
+                .show();
+    }
+
+    private boolean validExpiry(String expiry) {
+        return expiry.isEmpty() || parseExpiryDate(expiry) != null;
+    }
+
+    private String emptyToNull(String value) {
+        return value.isEmpty() ? null : value;
+    }
+
+    private void showMessage(String message) {
+        Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+
+        if (database != null) {
+            database.close();
+        }
+    }
+}
