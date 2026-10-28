@@ -45,9 +45,11 @@ public class MainActivityJava extends AppCompatActivity {
     private TextView expiryWarning;
     private ListView pantryList;
 
+    private LinearLayout formCard;
+    private Button toggleFormButton;
+
     private final ArrayList<String> ingredients = new ArrayList<>();
     private final ArrayList<Long> ingredientIds = new ArrayList<>();
-
     private final ArrayList<String> allIngredients = new ArrayList<>();
     private final ArrayList<Long> allIngredientIds = new ArrayList<>();
 
@@ -83,7 +85,9 @@ public class MainActivityJava extends AppCompatActivity {
         return Math.round(value * getResources().getDisplayMetrics().density);
     }
 
-    private GradientDrawable roundedBackground(int backgroundColor, int strokeColor) {
+    private GradientDrawable roundedBackground(
+            int backgroundColor, int strokeColor) {
+
         GradientDrawable drawable = new GradientDrawable();
         drawable.setColor(backgroundColor);
         drawable.setCornerRadius(dp(16));
@@ -106,7 +110,6 @@ public class MainActivityJava extends AppCompatActivity {
 
         LinearLayout.LayoutParams params =
                 new LinearLayout.LayoutParams(width, height);
-
         params.bottomMargin = dp(bottom);
         return params;
     }
@@ -126,44 +129,46 @@ public class MainActivityJava extends AppCompatActivity {
 
         LinearLayout root = verticalLayout();
         root.setBackgroundColor(color("warm_ivory"));
-        root.setPadding(dp(20), dp(12), dp(20), dp(8));
+        root.setPadding(dp(16), dp(6), dp(16), dp(6));
 
         // Brand heading
         TextView heading = new TextView(this);
         heading.setText("Smart Pantry");
-        heading.setTextSize(28);
+        heading.setTextSize(25);
         heading.setTextColor(color("espresso"));
         heading.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         heading.setGravity(Gravity.CENTER);
-        heading.setPadding(0, dp(8), 0, dp(2));
+        heading.setPadding(0, dp(4), 0, 0);
+
         root.addView(heading, margins(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT, 0));
 
         TextView tagline = new TextView(this);
         tagline.setText("Make the most of what you have.");
-        tagline.setTextSize(14);
+        tagline.setTextSize(12);
         tagline.setTextColor(color("muted_brown"));
         tagline.setGravity(Gravity.CENTER);
-        tagline.setPadding(0, 0, 0, dp(16));
+        tagline.setPadding(0, 0, 0, dp(5));
+
         root.addView(tagline, margins(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT, 12));
+                LinearLayout.LayoutParams.WRAP_CONTENT, 5));
 
-        // Expiry warning card
+        // Expiry warning
         expiryWarning = new TextView(this);
-        expiryWarning.setTextSize(13);
+        expiryWarning.setTextSize(12);
         expiryWarning.setTextColor(color("espresso"));
-        expiryWarning.setPadding(dp(14), dp(12), dp(14), dp(12));
-        expiryWarning.setBackground(
-                roundedBackground(color("soft_red"), Color.TRANSPARENT));
+        expiryWarning.setPadding(dp(12), dp(8), dp(12), dp(8));
+        expiryWarning.setBackground(roundedBackground(
+                color("soft_red"), Color.TRANSPARENT));
         expiryWarning.setVisibility(View.GONE);
 
         root.addView(expiryWarning, margins(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT, 12));
+                LinearLayout.LayoutParams.WRAP_CONTENT, 6));
 
-        // Main navigation buttons
+        // Navigation
         LinearLayout navigationRow = new LinearLayout(this);
         navigationRow.setOrientation(LinearLayout.HORIZONTAL);
         navigationRow.setGravity(Gravity.CENTER_VERTICAL);
@@ -171,22 +176,21 @@ public class MainActivityJava extends AppCompatActivity {
         Button recipesButton = createButton("Find Recipes", true);
         Button settingsButton = createButton("Settings", false);
 
-        LinearLayout.LayoutParams navParams = new LinearLayout.LayoutParams(
-                0, dp(48), 1);
-
-        navParams.setMargins(0, 0, dp(8), 0);
+        LinearLayout.LayoutParams navParams =
+                new LinearLayout.LayoutParams(0, dp(42), 1);
+        navParams.setMargins(0, 0, dp(6), 0);
         navigationRow.addView(recipesButton, navParams);
 
         LinearLayout.LayoutParams settingsParams =
-                new LinearLayout.LayoutParams(0, dp(48), 1);
-        settingsParams.setMargins(dp(8), 0, 0, 0);
+                new LinearLayout.LayoutParams(0, dp(42), 1);
+        settingsParams.setMargins(dp(6), 0, 0, 0);
         navigationRow.addView(settingsButton, settingsParams);
 
         root.addView(navigationRow, margins(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT, 18));
+                LinearLayout.LayoutParams.WRAP_CONTENT, 8));
 
-        // Pantry section heading
+        // Pantry heading
         TextView pantryHeading = new TextView(this);
         pantryHeading.setText("My Pantry");
         pantryHeading.setTextSize(21);
@@ -195,27 +199,33 @@ public class MainActivityJava extends AppCompatActivity {
 
         root.addView(pantryHeading, margins(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT, 4));
+                LinearLayout.LayoutParams.WRAP_CONTENT, 0));
 
         TextView pantrySubtitle = new TextView(this);
         pantrySubtitle.setText("Keep track of your ingredients");
-        pantrySubtitle.setTextSize(13);
+        pantrySubtitle.setTextSize(12);
         pantrySubtitle.setTextColor(color("muted_brown"));
 
         root.addView(pantrySubtitle, margins(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT, 12));
+                LinearLayout.LayoutParams.WRAP_CONTENT, 6));
 
-        // Ingredient form card
-        LinearLayout formCard = verticalLayout();
-        formCard.setPadding(dp(14), dp(12), dp(14), dp(14));
-        formCard.setBackground(
-                roundedBackground(color("oat"), color("soft_border")));
+        // Collapsible Add Ingredient button
+        toggleFormButton = createButton("+ Add Ingredient", true);
+
+        root.addView(toggleFormButton, margins(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dp(42), 8));
+
+        // Ingredient form: hidden initially to give the pantry more space
+        formCard = verticalLayout();
+        formCard.setPadding(dp(12), dp(10), dp(12), dp(10));
+        formCard.setBackground(roundedBackground(
+                color("oat"), color("soft_border")));
 
         nameInput = createInput("Ingredient name");
         formCard.addView(nameInput, margins(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                dp(50), 8));
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(44), 6));
 
         quantityInput = createInput("Quantity (e.g. 2)");
         quantityInput.setInputType(
@@ -223,26 +233,25 @@ public class MainActivityJava extends AppCompatActivity {
                         | InputType.TYPE_NUMBER_FLAG_DECIMAL);
 
         formCard.addView(quantityInput, margins(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                dp(50), 8));
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(44), 6));
 
         unitInput = createInput("Unit (e.g. kg, g, cups, items)");
         formCard.addView(unitInput, margins(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                dp(50), 8));
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(44), 6));
 
         expiryInput = createInput("Expiry date (optional: YYYY-MM-DD)");
         formCard.addView(expiryInput, margins(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                dp(50), 12));
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(44), 8));
 
-        Button addButton = createButton("+  Add Ingredient", true);
+        Button addButton = createButton("Save Ingredient", true);
         formCard.addView(addButton, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, dp(48)));
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(42)));
+
+        formCard.setVisibility(View.GONE);
 
         root.addView(formCard, margins(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT, 16));
+                LinearLayout.LayoutParams.WRAP_CONTENT, 8));
 
         // Search row
         LinearLayout searchRow = new LinearLayout(this);
@@ -253,30 +262,30 @@ public class MainActivityJava extends AppCompatActivity {
         searchInput.setImeOptions(EditorInfo.IME_ACTION_SEARCH);
 
         LinearLayout.LayoutParams searchInputParams =
-                new LinearLayout.LayoutParams(0, dp(50), 1);
-        searchInputParams.setMargins(0, 0, dp(8), 0);
+                new LinearLayout.LayoutParams(0, dp(44), 1);
+        searchInputParams.setMargins(0, 0, dp(6), 0);
         searchRow.addView(searchInput, searchInputParams);
 
         Button searchButton = createButton("Search", false);
         searchRow.addView(searchButton, new LinearLayout.LayoutParams(
-                dp(92), dp(50)));
+                dp(82), dp(44)));
 
         root.addView(searchRow, margins(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT, 12));
+                LinearLayout.LayoutParams.WRAP_CONTENT, 6));
 
         TextView listHint = new TextView(this);
-        listHint.setText("Tap an ingredient to edit it  •  Hold to delete");
-        listHint.setTextSize(12);
+        listHint.setText("Tap to edit  •  Hold to delete");
+        listHint.setTextSize(11);
         listHint.setTextColor(color("muted_brown"));
 
         root.addView(listHint, margins(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT, 8));
+                LinearLayout.LayoutParams.WRAP_CONTENT, 4));
 
-        // Pantry list with a custom adapter
+        // Pantry list with custom adapter
         pantryList = new ListView(this);
-        pantryList.setDividerHeight(dp(8));
+        pantryList.setDividerHeight(dp(6));
         pantryList.setDivider(null);
         pantryList.setBackgroundColor(Color.TRANSPARENT);
         pantryList.setPadding(0, 0, 0, dp(4));
@@ -285,14 +294,28 @@ public class MainActivityJava extends AppCompatActivity {
         adapter = new PantryAdapter();
         pantryList.setAdapter(adapter);
 
-        LinearLayout.LayoutParams listParams = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, 0, 1);
+        LinearLayout.LayoutParams listParams =
+                new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT, 0, 1);
 
         root.addView(pantryList, listParams);
 
         setContentView(root);
 
-        // Preserve navigation
+        // Expand and collapse the ingredient form
+        toggleFormButton.setOnClickListener(v -> {
+            if (formCard.getVisibility() == View.GONE) {
+                formCard.setVisibility(View.VISIBLE);
+                toggleFormButton.setText("− Hide Form");
+                nameInput.requestFocus();
+            } else {
+                formCard.setVisibility(View.GONE);
+                toggleFormButton.setText("+ Add Ingredient");
+                hideKeyboard();
+            }
+        });
+
+        // Navigation
         recipesButton.setOnClickListener(v -> {
             Intent intent = new Intent(
                     MainActivityJava.this,
@@ -342,15 +365,14 @@ public class MainActivityJava extends AppCompatActivity {
             }
         });
 
-        pantryList.setOnItemLongClickListener(
-                (parent, view, position, id) -> {
-                    if (position < ingredientIds.size()) {
-                        confirmDelete(
-                                ingredientIds.get(position),
-                                ingredients.get(position));
-                    }
-                    return true;
-                });
+        pantryList.setOnItemLongClickListener((parent, view, position, id) -> {
+            if (position < ingredientIds.size()) {
+                confirmDelete(
+                        ingredientIds.get(position),
+                        ingredients.get(position));
+            }
+            return true;
+        });
 
         loadIngredients();
     }
@@ -359,10 +381,10 @@ public class MainActivityJava extends AppCompatActivity {
         Button button = new Button(this);
         button.setText(text);
         button.setAllCaps(false);
-        button.setTextSize(14);
+        button.setTextSize(13);
         button.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-        button.setPadding(dp(12), dp(8), dp(12), dp(8));
-        button.setMinHeight(dp(48));
+        button.setPadding(dp(10), dp(5), dp(10), dp(5));
+        button.setMinHeight(dp(42));
         button.setStateListAnimator(null);
 
         if (primary) {
@@ -382,27 +404,31 @@ public class MainActivityJava extends AppCompatActivity {
         EditText input = new EditText(this);
         input.setHint(hint);
         input.setSingleLine(true);
-        input.setTextSize(14);
+        input.setTextSize(13);
         input.setTextColor(color("espresso"));
         input.setHintTextColor(color("muted_brown"));
-        input.setPadding(dp(14), dp(8), dp(14), dp(8));
+        input.setPadding(dp(12), dp(6), dp(12), dp(6));
         input.setBackground(roundedBackground(
                 color("card_white"), color("soft_border")));
         input.setSelectAllOnFocus(false);
         return input;
     }
 
-    private void performSearch() {
-        filterIngredients(searchInput.getText().toString());
-
+    private void hideKeyboard() {
         InputMethodManager keyboard = (InputMethodManager)
                 getSystemService(Context.INPUT_METHOD_SERVICE);
 
-        if (keyboard != null) {
-            keyboard.hideSoftInputFromWindow(
-                    searchInput.getWindowToken(), 0);
-        }
+        View currentFocus = getCurrentFocus();
 
+        if (keyboard != null && currentFocus != null) {
+            keyboard.hideSoftInputFromWindow(
+                    currentFocus.getWindowToken(), 0);
+        }
+    }
+
+    private void performSearch() {
+        filterIngredients(searchInput.getText().toString());
+        hideKeyboard();
         searchInput.clearFocus();
 
         Toast.makeText(
@@ -455,10 +481,16 @@ public class MainActivityJava extends AppCompatActivity {
 
         if (result != -1) {
             showMessage("Ingredient saved!");
+
             nameInput.setText("");
             quantityInput.setText("");
             unitInput.setText("");
             expiryInput.setText("");
+
+            formCard.setVisibility(View.GONE);
+            toggleFormButton.setText("+ Add Ingredient");
+            hideKeyboard();
+
             loadIngredients();
         } else {
             showMessage("Could not save ingredient.");
@@ -471,9 +503,7 @@ public class MainActivityJava extends AppCompatActivity {
 
         try (Cursor cursor = database.getReadableDatabase().query(
                 PantryDatabaseHelper.TABLE_INGREDIENTS,
-                new String[]{
-                        "id", "name", "quantity", "unit", "expiry_date"
-                },
+                new String[]{"id", "name", "quantity", "unit", "expiry_date"},
                 null, null, null, null, "name ASC")) {
 
             while (cursor.moveToNext()) {
@@ -786,7 +816,7 @@ public class MainActivityJava extends AppCompatActivity {
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
     }
 
-    // Custom adapter for styled pantry ingredient rows.
+    // Custom adapter for pantry ingredient rows
     private class PantryAdapter extends ArrayAdapter<String> {
 
         PantryAdapter() {
@@ -810,8 +840,8 @@ public class MainActivityJava extends AppCompatActivity {
             itemView.setTextSize(14);
             itemView.setTextColor(color("espresso"));
             itemView.setGravity(Gravity.CENTER_VERTICAL);
-            itemView.setPadding(dp(16), dp(12), dp(16), dp(12));
-            itemView.setMinHeight(dp(58));
+            itemView.setPadding(dp(14), dp(8), dp(14), dp(8));
+            itemView.setMinHeight(dp(48));
             itemView.setMaxLines(3);
             itemView.setLineSpacing(dp(2), 1.0f);
             itemView.setBackground(roundedBackground(
